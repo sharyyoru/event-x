@@ -255,7 +255,7 @@ export default function MessagesPage() {
     }
   }, [selectedConversation, fetchMessages])
 
-  // Real-time subscription for new messages
+  // Real-time subscription for new messages in current conversation
   useEffect(() => {
     if (!selectedConversation) return
 
@@ -269,19 +269,40 @@ export default function MessagesPage() {
           table: "messages",
           filter: `conversation_id=eq.${selectedConversation.id}`,
         },
-        (payload) => {
-          // Fetch the new message with sender info
-          supabase
+        async (payload) => {
+          // Avoid duplicates by checking if message already exists
+          const newMsg = payload.new as any
+          setMessages(prev => {
+            if (prev.some(m => m.id === newMsg.id)) return prev
+            
+            // Add message immediately for responsiveness
+            const tempMessage: Message = {
+              id: newMsg.id,
+              content: newMsg.content,
+              created_at: newMsg.created_at,
+              sender_id: newMsg.sender_id,
+              is_read: newMsg.is_read,
+              sender: (newMsg.sender_id === currentUser?.id && currentUser) ? {
+                id: currentUser.id,
+                full_name: currentUser.full_name,
+                avatar_url: currentUser.avatar_url,
+              } : undefined,
+            }
+            return [...prev, tempMessage]
+          })
+          
+          // Fetch complete message with sender info
+          const { data } = await supabase
             .from("messages")
             .select(`*, sender:profiles(id, full_name, avatar_url)`)
-            .eq("id", payload.new.id)
+            .eq("id", newMsg.id)
             .single()
-            .then(({ data }) => {
-              if (data) {
-                setMessages(prev => [...prev, data])
-                messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-              }
-            })
+            
+          if (data) {
+            setMessages(prev => prev.map(m => m.id === data.id ? data : m))
+          }
+          
+          messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
         }
       )
       .subscribe()
@@ -289,25 +310,101 @@ export default function MessagesPage() {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [selectedConversation])
+  }, [selectedConversation, currentUser])
+
+  // Real-time subscription for conversations (new messages in any conversation)
+  useEffect(() => {
+    if (!currentUser) return
+
+    const channel = supabase
+      .channel(`user-conversations:${currentUser.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
+        },
+        () => {
+          // Refresh conversations when any new message arrives
+          fetchConversations()
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${currentUser.id}`,
+        },
+        () => {
+          // Trigger a notification refresh if header is listening
+          window.dispatchEvent(new CustomEvent("new-notification"))
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [currentUser, fetchConversations])
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedConversation || !currentUser) return
+    
+    const messageContent = newMessage.trim()
+    const tempId = `temp-${Date.now()}`
+    
+    // Optimistic update - add message immediately
+    const optimisticMessage: Message = {
+      id: tempId,
+      content: messageContent,
+      created_at: new Date().toISOString(),
+      sender_id: currentUser.id,
+      is_read: false,
+      sender: {
+        id: currentUser.id,
+        full_name: currentUser.full_name,
+        avatar_url: currentUser.avatar_url,
+      },
+    }
+    
+    setMessages(prev => [...prev, optimisticMessage])
+    setNewMessage("")
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+    
     setIsSending(true)
 
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("messages")
         .insert({
           conversation_id: selectedConversation.id,
           sender_id: currentUser.id,
-          content: newMessage.trim(),
+          content: messageContent,
         })
+        .select()
+        .single()
 
       if (error) throw error
-      setNewMessage("")
+      
+      // Replace temp message with real one
+      if (data) {
+        setMessages(prev => prev.map(m => m.id === tempId ? { ...optimisticMessage, id: data.id } : m))
+      }
+      
+      // Update conversation's last_message_at
+      await supabase
+        .from("conversations")
+        .update({ last_message_at: new Date().toISOString() })
+        .eq("id", selectedConversation.id)
+        
       fetchConversations() // Refresh to update last message
     } catch (error: any) {
+      // Remove optimistic message on error
+      setMessages(prev => prev.filter(m => m.id !== tempId))
+      setNewMessage(messageContent) // Restore the message
       toast({
         title: "Error sending message",
         description: error.message,

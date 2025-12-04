@@ -50,7 +50,8 @@ export function Header() {
   useEffect(() => {
     if (user?.id) {
       fetchNotifications()
-      // Subscribe to new notifications
+      
+      // Subscribe to new notifications via Supabase realtime
       const channel = supabase
         .channel(`notifications:${user.id}`)
         .on(
@@ -65,8 +66,13 @@ export function Header() {
         )
         .subscribe()
 
+      // Also listen for custom events from messages page
+      const handleNewNotification = () => fetchNotifications()
+      window.addEventListener("new-notification", handleNewNotification)
+
       return () => {
         supabase.removeChannel(channel)
+        window.removeEventListener("new-notification", handleNewNotification)
       }
     }
   }, [user?.id])
