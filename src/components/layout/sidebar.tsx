@@ -5,34 +5,40 @@ import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { useAppStore } from "@/store/app-store"
 import { Button } from "@/components/ui/button"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import {
   Calendar,
   Users,
   Map,
   Building2,
-  TicketCheck,
+  Ticket,
   MessageSquare,
   BarChart3,
   Settings,
   FileText,
   QrCode,
-  Handshake,
+  Users2,
   ClipboardList,
   ChevronLeft,
   ChevronRight,
   Home,
   UserCircle,
+  LucideIcon,
 } from "lucide-react"
 
-const navigation = [
+interface NavItem {
+  name: string
+  href: string
+  icon: LucideIcon
+}
+
+const navigation: NavItem[] = [
   { name: "Dashboard", href: "/dashboard", icon: Home },
   { name: "Events", href: "/dashboard/events", icon: Calendar },
-  { name: "Registration", href: "/dashboard/registration", icon: TicketCheck },
+  { name: "Registration", href: "/dashboard/registration", icon: Ticket },
   { name: "Venues", href: "/dashboard/venues", icon: Building2 },
   { name: "Floor Plans", href: "/dashboard/floor-plans", icon: Map },
   { name: "Attendees", href: "/dashboard/attendees", icon: Users },
-  { name: "Networking", href: "/dashboard/networking", icon: Handshake },
+  { name: "Networking", href: "/dashboard/networking", icon: Users2 },
   { name: "Check-in", href: "/dashboard/check-in", icon: QrCode },
   { name: "Surveys", href: "/dashboard/surveys", icon: ClipboardList },
   { name: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
@@ -40,7 +46,7 @@ const navigation = [
   { name: "Messages", href: "/dashboard/messages", icon: MessageSquare },
 ]
 
-const bottomNavigation = [
+const bottomNavigation: NavItem[] = [
   { name: "Profile", href: "/dashboard/profile", icon: UserCircle },
   { name: "Settings", href: "/dashboard/settings", icon: Settings },
 ]
@@ -48,6 +54,29 @@ const bottomNavigation = [
 export function Sidebar() {
   const pathname = usePathname()
   const { sidebarOpen, toggleSidebar } = useAppStore()
+
+  const renderNavItem = (item: NavItem) => {
+    const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
+    const Icon = item.icon
+    
+    return (
+      <Link
+        key={item.name}
+        href={item.href}
+        className={cn(
+          "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+          isActive
+            ? "bg-primary text-primary-foreground"
+            : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+          !sidebarOpen && "justify-center px-2"
+        )}
+        title={!sidebarOpen ? item.name : undefined}
+      >
+        <Icon className="h-5 w-5 shrink-0" />
+        {sidebarOpen && <span>{item.name}</span>}
+      </Link>
+    )
+  }
 
   return (
     <aside
@@ -82,54 +111,16 @@ export function Sidebar() {
         </div>
 
         {/* Navigation */}
-        <ScrollArea className="flex-1 py-4">
+        <div className="flex-1 overflow-y-auto py-4">
           <nav className="space-y-1 px-2">
-            {navigation.map((item) => {
-              const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
-              return (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                    isActive
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-                    !sidebarOpen && "justify-center px-2"
-                  )}
-                  title={!sidebarOpen ? item.name : undefined}
-                >
-                  <item.icon className="h-5 w-5 shrink-0" />
-                  {sidebarOpen && <span>{item.name}</span>}
-                </Link>
-              )
-            })}
+            {navigation.map(renderNavItem)}
           </nav>
-        </ScrollArea>
+        </div>
 
         {/* Bottom Navigation */}
         <div className="border-t p-2">
           <nav className="space-y-1">
-            {bottomNavigation.map((item) => {
-              const isActive = pathname === item.href
-              return (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                    isActive
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-                    !sidebarOpen && "justify-center px-2"
-                  )}
-                  title={!sidebarOpen ? item.name : undefined}
-                >
-                  <item.icon className="h-5 w-5 shrink-0" />
-                  {sidebarOpen && <span>{item.name}</span>}
-                </Link>
-              )
-            })}
+            {bottomNavigation.map(renderNavItem)}
           </nav>
         </div>
       </div>
