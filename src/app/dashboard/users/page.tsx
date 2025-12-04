@@ -98,7 +98,42 @@ export default function UsersPage() {
         .order("created_at", { ascending: false })
 
       if (error) throw error
-      setUsers(data || [])
+
+      // For exhibitor users, fetch their company from exhibitor_contacts
+      const usersWithCompanies = await Promise.all(
+        (data || []).map(async (user) => {
+          if (user.role === "exhibitor" && !user.company) {
+            // Try to get company from exhibitor_contacts
+            const { data: contactData } = await supabase
+              .from("exhibitor_contacts")
+              .select("exhibitor:exhibitors(company_name)")
+              .eq("user_id", user.id)
+              .limit(1)
+              .single()
+
+            if (contactData?.exhibitor) {
+              const exhibitor = contactData.exhibitor as any
+              return { ...user, company: exhibitor.company_name }
+            }
+
+            // Also try exhibitor_team table
+            const { data: teamData } = await supabase
+              .from("exhibitor_team")
+              .select("exhibitor:exhibitors(company_name)")
+              .eq("user_id", user.id)
+              .limit(1)
+              .single()
+
+            if (teamData?.exhibitor) {
+              const exhibitor = teamData.exhibitor as any
+              return { ...user, company: exhibitor.company_name }
+            }
+          }
+          return user
+        })
+      )
+
+      setUsers(usersWithCompanies)
     } catch (error: any) {
       toast({
         title: "Error",

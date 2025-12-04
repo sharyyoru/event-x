@@ -109,7 +109,7 @@ function ExhibitorLoginContent() {
     setIsLoading(true)
 
     try {
-      // Register the user
+      // Register the user with email confirmation disabled for invited exhibitors
       const { data, error } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
@@ -118,10 +118,20 @@ function ExhibitorLoginContent() {
             full_name: formData.fullName,
             role: "exhibitor",
           },
+          emailRedirectTo: `${window.location.origin}/dashboard/exhibitor-portal`,
         },
       })
 
       if (error) throw error
+
+      // Check if email confirmation is pending
+      if (data.user && !data.session) {
+        toast({
+          title: "Check your email",
+          description: "Please click the confirmation link sent to your email to complete registration.",
+        })
+        return
+      }
 
       if (data.user) {
         // Update the profile with exhibitor role

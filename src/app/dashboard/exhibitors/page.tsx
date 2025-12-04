@@ -57,7 +57,9 @@ import {
   Send,
   Copy,
   ExternalLink,
+  Pencil,
 } from "lucide-react"
+import { Textarea } from "@/components/ui/textarea"
 import { supabase } from "@/lib/supabase/client"
 import { useToast } from "@/hooks/use-toast"
 
@@ -122,6 +124,7 @@ export default function ExhibitorsPage() {
   const [eventFilter, setEventFilter] = useState("all")
   const [selectedExhibitor, setSelectedExhibitor] = useState<Exhibitor | null>(null)
   const [showContactDialog, setShowContactDialog] = useState(false)
+  const [showEditDialog, setShowEditDialog] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
 
   const [newContact, setNewContact] = useState({
@@ -130,6 +133,20 @@ export default function ExhibitorsPage() {
     phone: "",
     job_title: "",
     is_primary: false,
+  })
+
+  const [editForm, setEditForm] = useState({
+    company_name: "",
+    company_description: "",
+    company_website: "",
+    industry: "",
+    booth_size: "",
+    booth_number: "",
+    status: "",
+    package_type: "",
+    contract_value: "",
+    paid_amount: "",
+    special_requirements: "",
   })
 
   useEffect(() => {
@@ -247,6 +264,61 @@ export default function ExhibitorsPage() {
         description: "Failed to copy invitation link",
         variant: "destructive",
       })
+    }
+  }
+
+  const openEditDialog = (exhibitor: Exhibitor) => {
+    setSelectedExhibitor(exhibitor)
+    setEditForm({
+      company_name: exhibitor.company_name || "",
+      company_description: exhibitor.company_description || "",
+      company_website: exhibitor.company_website || "",
+      industry: exhibitor.industry || "",
+      booth_size: exhibitor.booth_size || "",
+      booth_number: exhibitor.booth_number || "",
+      status: exhibitor.status || "potential",
+      package_type: exhibitor.package_type || "",
+      contract_value: exhibitor.contract_value?.toString() || "",
+      paid_amount: exhibitor.paid_amount?.toString() || "0",
+      special_requirements: "",
+    })
+    setShowEditDialog(true)
+  }
+
+  const handleSaveExhibitor = async () => {
+    if (!selectedExhibitor) return
+    setIsSaving(true)
+
+    try {
+      const { error } = await supabase
+        .from("exhibitors")
+        .update({
+          company_name: editForm.company_name,
+          company_description: editForm.company_description || null,
+          company_website: editForm.company_website || null,
+          industry: editForm.industry || null,
+          booth_size: editForm.booth_size || null,
+          booth_number: editForm.booth_number || null,
+          status: editForm.status,
+          package_type: editForm.package_type || null,
+          contract_value: editForm.contract_value ? parseFloat(editForm.contract_value) : null,
+          paid_amount: editForm.paid_amount ? parseFloat(editForm.paid_amount) : 0,
+        })
+        .eq("id", selectedExhibitor.id)
+
+      if (error) throw error
+
+      toast({ title: "Exhibitor updated!" })
+      setShowEditDialog(false)
+      fetchExhibitors()
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      })
+    } finally {
+      setIsSaving(false)
     }
   }
 
@@ -459,6 +531,10 @@ export default function ExhibitorsPage() {
                           <Eye className="mr-2 h-4 w-4" />
                           View Details
                         </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => openEditDialog(exhibitor)}>
+                          <Pencil className="mr-2 h-4 w-4" />
+                          Edit Exhibitor
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => {
                           setSelectedExhibitor(exhibitor)
                           setShowContactDialog(true)
@@ -645,6 +721,144 @@ export default function ExhibitorsPage() {
             >
               {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Add Contact
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Exhibitor Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Exhibitor</DialogTitle>
+            <DialogDescription>
+              Update details for {selectedExhibitor?.company_name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Company Name *</Label>
+                <Input
+                  value={editForm.company_name}
+                  onChange={(e) => setEditForm(p => ({ ...p, company_name: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Industry</Label>
+                <Input
+                  value={editForm.industry}
+                  onChange={(e) => setEditForm(p => ({ ...p, industry: e.target.value }))}
+                  placeholder="e.g., Technology, Marketing"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Description</Label>
+              <Textarea
+                value={editForm.company_description}
+                onChange={(e) => setEditForm(p => ({ ...p, company_description: e.target.value }))}
+                rows={3}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Website</Label>
+                <Input
+                  value={editForm.company_website}
+                  onChange={(e) => setEditForm(p => ({ ...p, company_website: e.target.value }))}
+                  placeholder="https://example.com"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <Select 
+                  value={editForm.status} 
+                  onValueChange={(v) => setEditForm(p => ({ ...p, status: v }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {EXHIBITOR_STATUSES.filter(s => s.value !== "all").map(s => (
+                      <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label>Booth Number</Label>
+                <Input
+                  value={editForm.booth_number}
+                  onChange={(e) => setEditForm(p => ({ ...p, booth_number: e.target.value }))}
+                  placeholder="A-101"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Booth Size</Label>
+                <Select 
+                  value={editForm.booth_size} 
+                  onValueChange={(v) => setEditForm(p => ({ ...p, booth_size: v }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select size" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="small">Small (9 sqm)</SelectItem>
+                    <SelectItem value="medium">Medium (18 sqm)</SelectItem>
+                    <SelectItem value="large">Large (36 sqm)</SelectItem>
+                    <SelectItem value="xlarge">X-Large (54+ sqm)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Package</Label>
+                <Select 
+                  value={editForm.package_type} 
+                  onValueChange={(v) => setEditForm(p => ({ ...p, package_type: v }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select package" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="standard">Standard</SelectItem>
+                    <SelectItem value="premium">Premium</SelectItem>
+                    <SelectItem value="platinum">Platinum</SelectItem>
+                    <SelectItem value="sponsor">Sponsor</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Contract Value (AED)</Label>
+                <Input
+                  type="number"
+                  value={editForm.contract_value}
+                  onChange={(e) => setEditForm(p => ({ ...p, contract_value: e.target.value }))}
+                  placeholder="0"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Paid Amount (AED)</Label>
+                <Input
+                  type="number"
+                  value={editForm.paid_amount}
+                  onChange={(e) => setEditForm(p => ({ ...p, paid_amount: e.target.value }))}
+                  placeholder="0"
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEditDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveExhibitor} disabled={isSaving || !editForm.company_name}>
+              {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save Changes
             </Button>
           </DialogFooter>
         </DialogContent>
