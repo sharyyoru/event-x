@@ -162,9 +162,19 @@ export default function ExhibitorDetailPage() {
           events(id, title, start_date, end_date, venue)
         `)
         .eq("id", exhibitorId)
-        .single()
+        .maybeSingle()
 
-      if (error) throw error
+      if (error) {
+        console.error("Supabase error:", error)
+        throw error
+      }
+      
+      if (!data) {
+        console.log("No exhibitor found with ID:", exhibitorId)
+        setIsLoading(false)
+        return
+      }
+      
       setExhibitor(data)
 
       // Set edit form with existing values

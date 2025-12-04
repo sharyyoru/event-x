@@ -607,10 +607,13 @@ export default function MessagesPage() {
                   </Avatar>
                   <div className="flex-1">
                     <p className="font-semibold">
-                      {selectedConversation.subject || getOtherParticipants(selectedConversation).map(p => p.full_name).join(", ")}
+                      {selectedConversation.subject || getOtherParticipants(selectedConversation).map(p => p.full_name).join(", ") || "Conversation"}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {selectedConversation.participants?.length} participants
+                      {getOtherParticipants(selectedConversation).length > 0 
+                        ? getOtherParticipants(selectedConversation).map(p => p.full_name).join(", ")
+                        : `${selectedConversation.participants?.length || 0} participants`
+                      }
                     </p>
                   </div>
                 </div>

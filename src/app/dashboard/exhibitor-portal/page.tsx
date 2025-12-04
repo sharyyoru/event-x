@@ -223,30 +223,53 @@ export default function ExhibitorPortalPage() {
   const fetchExhibitorData = useCallback(async () => {
     try {
       const user = await fetchCurrentUser()
-      if (!user) return
+      if (!user) {
+        setIsLoading(false)
+        return
+      }
 
       // Try to find exhibitor through exhibitor_contacts or exhibitor_team
       let exhibitorId: string | null = null
 
-      // Check exhibitor_contacts first
+      // Check exhibitor_contacts first (using maybeSingle to avoid errors)
       const { data: contactData } = await supabase
         .from("exhibitor_contacts")
         .select("exhibitor_id, is_primary")
         .eq("user_id", user.id)
-        .single()
+        .maybeSingle()
 
       if (contactData) {
         exhibitorId = contactData.exhibitor_id
         setIsPrimaryContact(contactData.is_primary)
       }
 
-      // If not found, check exhibitor_team
+      // If not found by user_id, try by email
+      if (!exhibitorId) {
+        const { data: contactByEmail } = await supabase
+          .from("exhibitor_contacts")
+          .select("exhibitor_id, is_primary")
+          .eq("email", user.email)
+          .maybeSingle()
+
+        if (contactByEmail) {
+          exhibitorId = contactByEmail.exhibitor_id
+          setIsPrimaryContact(contactByEmail.is_primary)
+          
+          // Link the user_id to the contact for future lookups
+          await supabase
+            .from("exhibitor_contacts")
+            .update({ user_id: user.id, invitation_status: "accepted" })
+            .eq("email", user.email)
+        }
+      }
+
+      // If still not found, check exhibitor_team
       if (!exhibitorId) {
         const { data: teamData } = await supabase
           .from("exhibitor_team")
           .select("exhibitor_id, role")
           .eq("user_id", user.id)
-          .single()
+          .maybeSingle()
 
         if (teamData) {
           exhibitorId = teamData.exhibitor_id
@@ -254,20 +277,45 @@ export default function ExhibitorPortalPage() {
         }
       }
 
+      // Try by email in exhibitor_team as well
       if (!exhibitorId) {
+        const { data: teamByEmail } = await supabase
+          .from("exhibitor_team")
+          .select("exhibitor_id, role")
+          .eq("email", user.email)
+          .maybeSingle()
+
+        if (teamByEmail) {
+          exhibitorId = teamByEmail.exhibitor_id
+          setIsPrimaryContact(teamByEmail.role === "primary" || teamByEmail.role === "admin")
+          
+          // Link the user_id
+          await supabase
+            .from("exhibitor_team")
+            .update({ user_id: user.id, status: "active", joined_at: new Date().toISOString() })
+            .eq("email", user.email)
+        }
+      }
+
+      if (!exhibitorId) {
+        console.log("No exhibitor found for user:", user.id, user.email)
         setIsLoading(false)
         return
       }
 
       // Fetch exhibitor details
-      const { data: exhibitorData } = await supabase
+      const { data: exhibitorData, error: exhibitorError } = await supabase
         .from("exhibitors")
         .select(`
           *,
           events(id, title, start_date, end_date, venue)
         `)
         .eq("id", exhibitorId)
-        .single()
+        .maybeSingle()
+
+      if (exhibitorError) {
+        console.error("Error fetching exhibitor:", exhibitorError)
+      }
 
       if (exhibitorData) {
         setExhibitor(exhibitorData)

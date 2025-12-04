@@ -27,6 +27,7 @@ import {
   UserCog,
   UserPlus,
   LucideIcon,
+  Loader2,
 } from "lucide-react"
 
 interface NavItem {
@@ -72,21 +73,26 @@ export function Sidebar() {
   const pathname = usePathname()
   const { sidebarOpen, toggleSidebar } = useAppStore()
   const [userRole, setUserRole] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     const fetchUserRole = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        const { data } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", user.id)
-          .maybeSingle()
-        if (data) {
-          setUserRole(data.role)
-        } else {
-          setUserRole(user.user_metadata?.role || "attendee")
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          const { data } = await supabase
+            .from("profiles")
+            .select("role")
+            .eq("id", user.id)
+            .maybeSingle()
+          if (data) {
+            setUserRole(data.role)
+          } else {
+            setUserRole(user.user_metadata?.role || "attendee")
+          }
         }
+      } finally {
+        setIsLoading(false)
       }
     }
     fetchUserRole()
@@ -167,11 +173,18 @@ export function Sidebar() {
 
         {/* Navigation */}
         <div className="flex-1 overflow-y-auto py-4">
-          <nav className="space-y-1 px-2">
-            {(userRole === "exhibitor" ? exhibitorNavigation : adminNavigation)
-              .filter(item => !item.roles || item.roles.includes(userRole || ""))
-              .map(renderNavItem)}
-          </nav>
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              {sidebarOpen && <span className="mt-2 text-xs text-muted-foreground">Loading...</span>}
+            </div>
+          ) : (
+            <nav className="space-y-1 px-2">
+              {(userRole === "exhibitor" ? exhibitorNavigation : adminNavigation)
+                .filter(item => !item.roles || item.roles.includes(userRole || ""))
+                .map(renderNavItem)}
+            </nav>
+          )}
         </div>
 
         {/* Bottom Navigation */}
