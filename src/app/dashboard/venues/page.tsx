@@ -207,6 +207,7 @@ export default function VenuesPage() {
   ].filter(Boolean).length
 
   const featuredVenues = filteredVenues.filter(v => v.is_featured)
+  // Show all non-featured venues, or all venues if no featured ones exist
   const regularVenues = filteredVenues.filter(v => !v.is_featured)
 
   return (

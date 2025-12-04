@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -77,6 +77,7 @@ const DATE_FILTERS = [
 
 export default function EventsPage() {
   const { toast } = useToast()
+  const router = useRouter()
   const searchParams = useSearchParams()
   const [events, setEvents] = useState<Event[]>([])
   const [users, setUsers] = useState<User[]>([])
@@ -707,35 +708,47 @@ export default function EventsPage() {
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {filteredEvents.map((event) => (
-              <Card key={event.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-                <div className="h-32 bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+              <Card 
+                key={event.id} 
+                className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer group"
+                onClick={() => router.push(`/dashboard/events/${event.id}`)}
+              >
+                <div className="h-32 bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center group-hover:from-primary/30 group-hover:to-primary/10 transition-colors">
                   <Calendar className="h-12 w-12 text-primary/50" />
                 </div>
                 <CardHeader className="pb-2">
                   <div className="flex items-start justify-between">
                     <div className="flex-1 min-w-0">
-                      <CardTitle className="text-lg truncate">{event.title}</CardTitle>
+                      <CardTitle className="text-lg truncate group-hover:text-primary transition-colors">{event.title}</CardTitle>
                       <CardDescription className="line-clamp-2 mt-1">
                         {event.description || "No description"}
                       </CardDescription>
                     </div>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="shrink-0">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="shrink-0"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => router.push(`/dashboard/events/${event.id}`)}>
                           <Eye className="mr-2 h-4 w-4" />
-                          View
+                          View Details
                         </DropdownMenuItem>
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => router.push(`/dashboard/events/${event.id}`)}>
                           <Pencil className="mr-2 h-4 w-4" />
                           Edit
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                          onClick={() => handleDeleteEvent(event.id)}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleDeleteEvent(event.id)
+                          }}
                           className="text-destructive"
                         >
                           <Trash2 className="mr-2 h-4 w-4" />
@@ -761,12 +774,9 @@ export default function EventsPage() {
                         <span className={`mr-1.5 h-2 w-2 rounded-full ${STATUS_COLORS[event.status]}`} />
                         {event.status}
                       </Badge>
-                      <div className="flex -space-x-2">
-                        {/* Placeholder for assigned users */}
-                        <Avatar className="h-6 w-6 border-2 border-background">
-                          <AvatarFallback className="text-[10px]">+3</AvatarFallback>
-                        </Avatar>
-                      </div>
+                      <Button variant="ghost" size="sm" className="text-xs">
+                        View Details →
+                      </Button>
                     </div>
                   </div>
                 </CardContent>
