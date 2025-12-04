@@ -61,6 +61,27 @@ function ExhibitorLoginContent() {
 
       if (error) throw error
 
+      // Link user to exhibitor contact if not already linked
+      await supabase
+        .from("exhibitor_contacts")
+        .update({ 
+          user_id: data.user.id,
+          invitation_status: "accepted"
+        })
+        .eq("email", formData.email)
+        .is("user_id", null)
+
+      // Also check exhibitor_team
+      await supabase
+        .from("exhibitor_team")
+        .update({ 
+          user_id: data.user.id,
+          status: "active",
+          joined_at: new Date().toISOString()
+        })
+        .eq("email", formData.email)
+        .is("user_id", null)
+
       // Check role
       const { data: profile } = await supabase
         .from("profiles")
@@ -147,15 +168,32 @@ function ExhibitorLoginContent() {
         if (exhibitorId) {
           await supabase
             .from("exhibitor_contacts")
-            .update({ user_id: data.user.id })
+            .update({ 
+              user_id: data.user.id,
+              invitation_status: "accepted"
+            })
             .eq("exhibitor_id", exhibitorId)
             .eq("email", formData.email)
         }
 
-        // Also try to find and link by email
+        // Also try to find and link by email (for any matching exhibitor contact)
         await supabase
           .from("exhibitor_contacts")
-          .update({ user_id: data.user.id })
+          .update({ 
+            user_id: data.user.id,
+            invitation_status: "accepted"
+          })
+          .eq("email", formData.email)
+          .is("user_id", null)
+        
+        // Also check exhibitor_team table
+        await supabase
+          .from("exhibitor_team")
+          .update({ 
+            user_id: data.user.id,
+            status: "active",
+            joined_at: new Date().toISOString()
+          })
           .eq("email", formData.email)
           .is("user_id", null)
 
