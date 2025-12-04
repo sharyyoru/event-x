@@ -101,6 +101,28 @@
   cursor: grabbing;
 }
 
+/* Form inputs - ensure black text */
+input, textarea, select {
+  color: hsl(var(--foreground)) !important;
+}
+
+input::placeholder, textarea::placeholder {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+/* Select trigger text */
+[data-radix-select-trigger] {
+  color: hsl(var(--foreground)) !important;
+}
+
+/* Dialog form fields */
+[role="dialog"] input,
+[role="dialog"] textarea,
+[role="dialog"] select {
+  color: hsl(222.2 84% 4.9%) !important;
+  background: white !important;
+}
+
 /* Badge printing styles */
 @media print {
   .no-print {

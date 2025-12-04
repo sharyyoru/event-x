@@ -111,7 +111,7 @@ export function Header() {
       <div className="flex items-center gap-4">
         {/* Create Event Button - Only for admins and organizers */}
         {(user?.role === "admin" || user?.role === "organizer") && (
-          <Link href="/dashboard/events/new">
+          <Link href="/dashboard/events?action=create">
             <Button>
               <Plus className="mr-2 h-4 w-4" />
               Create Event
