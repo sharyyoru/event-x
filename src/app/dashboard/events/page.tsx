@@ -89,6 +89,7 @@ export default function EventsPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
   const [selectedUsers, setSelectedUsers] = useState<string[]>([])
+  const [userSearchQuery, setUserSearchQuery] = useState("")
   const [newEvent, setNewEvent] = useState({
     title: "",
     description: "",
@@ -234,6 +235,17 @@ export default function EventsPage() {
         : [...prev, userId]
     )
   }
+
+  // Smart search for users
+  const filteredUsers = users.filter((user) => {
+    if (!userSearchQuery) return true
+    const query = userSearchQuery.toLowerCase()
+    return (
+      user.full_name?.toLowerCase().includes(query) ||
+      user.email?.toLowerCase().includes(query) ||
+      user.role?.toLowerCase().includes(query)
+    )
+  })
 
   const filterEventsByDate = (event: Event) => {
     const eventStart = parseISO(event.start_date)
@@ -420,45 +432,101 @@ export default function EventsPage() {
                   </div>
                 </div>
 
-                {/* Assign Users */}
+                {/* Assign Users with Smart Search */}
                 <div className="space-y-4">
                   <h3 className="font-semibold text-foreground">Assign Team Members</h3>
-                  <p className="text-sm text-muted-foreground">Select users to assign to this event</p>
-                  <div className="max-h-48 overflow-y-auto border rounded-lg p-2 space-y-2">
-                    {users.map((user) => (
-                      <div
-                        key={user.id}
-                        onClick={() => toggleUserSelection(user.id)}
-                        className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${
-                          selectedUsers.includes(user.id)
-                            ? "bg-primary/10 border border-primary"
-                            : "hover:bg-muted"
-                        }`}
-                      >
-                        <Avatar className="h-8 w-8">
-                          <AvatarImage src={user.avatar_url || ""} />
-                          <AvatarFallback className="text-xs">
-                            {getInitials(user.full_name)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-foreground truncate">{user.full_name}</p>
-                          <p className="text-xs text-muted-foreground truncate">{user.email}</p>
-                        </div>
-                        <Badge variant="secondary" className="text-xs capitalize">
-                          {user.role}
-                        </Badge>
-                        {selectedUsers.includes(user.id) && (
-                          <Check className="h-4 w-4 text-primary" />
+                  <p className="text-sm text-muted-foreground">Search and select users to assign to this event</p>
+                  
+                  {/* Selected Users Pills */}
+                  {selectedUsers.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {selectedUsers.map((userId) => {
+                        const user = users.find(u => u.id === userId)
+                        if (!user) return null
+                        return (
+                          <Badge
+                            key={userId}
+                            variant="secondary"
+                            className="pl-2 pr-1 py-1 flex items-center gap-1"
+                          >
+                            <Avatar className="h-4 w-4">
+                              <AvatarFallback className="text-[8px]">
+                                {getInitials(user.full_name)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className="text-xs">{user.full_name}</span>
+                            <button
+                              type="button"
+                              onClick={() => toggleUserSelection(userId)}
+                              className="ml-1 hover:bg-muted rounded p-0.5"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </Badge>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  {/* Search Input */}
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      placeholder="Search by name, email, or role..."
+                      value={userSearchQuery}
+                      onChange={(e) => setUserSearchQuery(e.target.value)}
+                      className="pl-10 text-foreground"
+                    />
+                  </div>
+
+                  {/* Filtered User List */}
+                  <div className="max-h-48 overflow-y-auto border rounded-lg">
+                    {filteredUsers.length === 0 ? (
+                      <div className="p-4 text-center text-sm text-muted-foreground">
+                        {userSearchQuery ? "No users found" : "Start typing to search users"}
+                      </div>
+                    ) : (
+                      <div className="p-2 space-y-1">
+                        {filteredUsers.slice(0, 10).map((user) => (
+                          <div
+                            key={user.id}
+                            onClick={() => toggleUserSelection(user.id)}
+                            className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${
+                              selectedUsers.includes(user.id)
+                                ? "bg-primary/10 border border-primary"
+                                : "hover:bg-muted"
+                            }`}
+                          >
+                            <Avatar className="h-8 w-8">
+                              <AvatarImage src={user.avatar_url || ""} />
+                              <AvatarFallback className="text-xs">
+                                {getInitials(user.full_name)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-foreground truncate">{user.full_name}</p>
+                              <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                            </div>
+                            <Badge variant="secondary" className="text-xs capitalize shrink-0">
+                              {user.role}
+                            </Badge>
+                            {selectedUsers.includes(user.id) && (
+                              <Check className="h-4 w-4 text-primary shrink-0" />
+                            )}
+                          </div>
+                        ))}
+                        {filteredUsers.length > 10 && (
+                          <p className="text-xs text-muted-foreground text-center py-2">
+                            +{filteredUsers.length - 10} more users. Refine your search.
+                          </p>
                         )}
                       </div>
-                    ))}
+                    )}
                   </div>
-                  {selectedUsers.length > 0 && (
-                    <p className="text-sm text-muted-foreground">
-                      {selectedUsers.length} user(s) selected
-                    </p>
-                  )}
+                  
+                  <p className="text-sm text-muted-foreground">
+                    {selectedUsers.length} user(s) selected
+                  </p>
                 </div>
               </div>
               <DialogFooter>
