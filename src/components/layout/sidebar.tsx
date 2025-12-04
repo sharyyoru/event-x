@@ -33,13 +33,15 @@ interface NavItem {
   name: string
   href: string
   icon: LucideIcon
-  adminOnly?: boolean
+  roles?: string[] // If specified, only these roles can see it
 }
 
-const navigation: NavItem[] = [
+// Navigation for admin/organizer/staff
+const adminNavigation: NavItem[] = [
   { name: "Dashboard", href: "/dashboard", icon: Home },
   { name: "Events", href: "/dashboard/events", icon: Calendar },
-  { name: "User Management", href: "/dashboard/users", icon: UserCog, adminOnly: true },
+  { name: "Exhibitors", href: "/dashboard/exhibitors", icon: Building2 },
+  { name: "User Management", href: "/dashboard/users", icon: UserCog, roles: ["admin"] },
   { name: "Registration", href: "/dashboard/registration", icon: Ticket },
   { name: "Venues", href: "/dashboard/venues", icon: Building2 },
   { name: "Floor Plans", href: "/dashboard/floor-plans", icon: Map },
@@ -47,9 +49,18 @@ const navigation: NavItem[] = [
   { name: "Networking", href: "/dashboard/networking", icon: Users2 },
   { name: "Check-in", href: "/dashboard/check-in", icon: QrCode },
   { name: "Surveys", href: "/dashboard/surveys", icon: ClipboardList },
-  { name: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
+  { name: "Analytics", href: "/dashboard/analytics", icon: BarChart3, roles: ["admin", "organizer"] },
   { name: "RFP", href: "/dashboard/rfp", icon: FileText },
   { name: "Messages", href: "/dashboard/messages", icon: MessageSquare },
+]
+
+// Navigation for exhibitor role
+const exhibitorNavigation: NavItem[] = [
+  { name: "My Profile", href: "/dashboard/exhibitor-portal", icon: Building2 },
+  { name: "Check-in", href: "/dashboard/check-in", icon: QrCode },
+  { name: "Surveys", href: "/dashboard/surveys", icon: ClipboardList },
+  { name: "Messages", href: "/dashboard/messages", icon: MessageSquare },
+  { name: "Networking", href: "/dashboard/networking", icon: Users2 },
 ]
 
 const bottomNavigation: NavItem[] = [
@@ -157,8 +168,8 @@ export function Sidebar() {
         {/* Navigation */}
         <div className="flex-1 overflow-y-auto py-4">
           <nav className="space-y-1 px-2">
-            {navigation
-              .filter(item => !item.adminOnly || userRole === "admin")
+            {(userRole === "exhibitor" ? exhibitorNavigation : adminNavigation)
+              .filter(item => !item.roles || item.roles.includes(userRole || ""))
               .map(renderNavItem)}
           </nav>
         </div>

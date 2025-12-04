@@ -175,9 +175,26 @@ export default function EventsPage() {
 
       if (error) throw error
 
+      // Add selected team members to the event
+      if (selectedUsers.length > 0 && data) {
+        const teamMembers = selectedUsers.map(userId => ({
+          event_id: data.id,
+          user_id: userId,
+          role: "member"
+        }))
+
+        const { error: teamError } = await supabase
+          .from("event_team_members")
+          .insert(teamMembers)
+
+        if (teamError) {
+          console.error("Error adding team members:", teamError)
+        }
+      }
+
       toast({
         title: "Event created!",
-        description: `${newEvent.title} has been created successfully.`,
+        description: `${newEvent.title} has been created with ${selectedUsers.length} team member(s).`,
       })
 
       setIsCreateDialogOpen(false)
