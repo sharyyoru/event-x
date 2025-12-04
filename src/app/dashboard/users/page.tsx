@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -66,6 +67,7 @@ const USER_ROLES = [
 
 export default function UsersPage() {
   const { toast } = useToast()
+  const searchParams = useSearchParams()
   const [users, setUsers] = useState<User[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
@@ -82,7 +84,11 @@ export default function UsersPage() {
 
   useEffect(() => {
     fetchUsers()
-  }, [])
+    // Open create dialog if action=create in URL
+    if (searchParams.get("action") === "create") {
+      setIsCreateDialogOpen(true)
+    }
+  }, [searchParams])
 
   const fetchUsers = async () => {
     try {

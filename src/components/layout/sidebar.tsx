@@ -25,6 +25,7 @@ import {
   Home,
   UserCircle,
   UserCog,
+  UserPlus,
   LucideIcon,
 } from "lucide-react"
 
@@ -69,8 +70,12 @@ export function Sidebar() {
           .from("profiles")
           .select("role")
           .eq("id", user.id)
-          .single()
-        if (data) setUserRole(data.role)
+          .maybeSingle()
+        if (data) {
+          setUserRole(data.role)
+        } else {
+          setUserRole(user.user_metadata?.role || "attendee")
+        }
       }
     }
     fetchUserRole()
@@ -130,6 +135,24 @@ export function Sidebar() {
             )}
           </Button>
         </div>
+
+        {/* Admin Quick Action */}
+        {userRole === "admin" && (
+          <div className="border-b p-2">
+            <Link href="/dashboard/users?action=create">
+              <Button
+                className={cn(
+                  "w-full justify-start gap-2",
+                  !sidebarOpen && "justify-center px-2"
+                )}
+                size={sidebarOpen ? "default" : "icon"}
+              >
+                <UserPlus className="h-4 w-4" />
+                {sidebarOpen && <span>Create User</span>}
+              </Button>
+            </Link>
+          </div>
+        )}
 
         {/* Navigation */}
         <div className="flex-1 overflow-y-auto py-4">

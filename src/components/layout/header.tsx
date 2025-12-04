@@ -45,10 +45,20 @@ export function Header() {
           .from("profiles")
           .select("id, email, full_name, first_name, avatar_url, role")
           .eq("id", authUser.id)
-          .single()
+          .maybeSingle()
 
         if (profile) {
           setUser(profile)
+        } else {
+          // Fallback to auth user info
+          setUser({
+            id: authUser.id,
+            email: authUser.email || "",
+            full_name: authUser.user_metadata?.full_name || authUser.email?.split("@")[0] || "User",
+            first_name: authUser.user_metadata?.first_name || null,
+            avatar_url: null,
+            role: authUser.user_metadata?.role || "attendee",
+          })
         }
       }
     } catch (error) {

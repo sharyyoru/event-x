@@ -61,13 +61,36 @@ export default function ProfilePage() {
         .from("profiles")
         .select("*")
         .eq("id", user.id)
-        .single()
+        .maybeSingle()
 
       if (error) throw error
-      setProfile(data)
+      
+      if (data) {
+        setProfile(data)
+      } else {
+        // Create profile if doesn't exist
+        const newProfile = {
+          id: user.id,
+          email: user.email || "",
+          full_name: user.user_metadata?.full_name || user.email?.split("@")[0] || "User",
+          first_name: user.user_metadata?.first_name || null,
+          last_name: user.user_metadata?.last_name || null,
+          role: user.user_metadata?.role || "attendee",
+        }
+        
+        const { data: createdProfile, error: createError } = await supabase
+          .from("profiles")
+          .insert(newProfile)
+          .select()
+          .single()
+          
+        if (createError) throw createError
+        setProfile(createdProfile)
+      }
     } catch (error: any) {
+      console.error("Profile error:", error)
       toast({
-        title: "Error",
+        title: "Error loading profile",
         description: error.message,
         variant: "destructive",
       })
