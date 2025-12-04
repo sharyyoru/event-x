@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Bell, Search, Plus, LogOut, User, Settings } from "lucide-react"
+import { Bell, Search, Plus, LogOut, User, Settings, MessageSquare, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -27,14 +27,81 @@ interface UserProfile {
   role: string
 }
 
+interface Notification {
+  id: string
+  type: string
+  title: string
+  body: string | null
+  link: string | null
+  is_read: boolean
+  created_at: string
+}
+
 export function Header() {
   const router = useRouter()
   const [user, setUser] = useState<UserProfile | null>(null)
-  const [unreadNotifications] = useState(0)
+  const [notifications, setNotifications] = useState<Notification[]>([])
+  const [unreadCount, setUnreadCount] = useState(0)
 
   useEffect(() => {
     fetchUser()
   }, [])
+
+  useEffect(() => {
+    if (user?.id) {
+      fetchNotifications()
+      // Subscribe to new notifications
+      const channel = supabase
+        .channel(`notifications:${user.id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "notifications",
+            filter: `user_id=eq.${user.id}`,
+          },
+          () => fetchNotifications()
+        )
+        .subscribe()
+
+      return () => {
+        supabase.removeChannel(channel)
+      }
+    }
+  }, [user?.id])
+
+  const fetchNotifications = async () => {
+    if (!user?.id) return
+    const { data, error } = await supabase
+      .from("notifications")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(10)
+
+    if (!error && data) {
+      setNotifications(data)
+      setUnreadCount(data.filter(n => !n.is_read).length)
+    }
+  }
+
+  const markAsRead = async (notificationId: string) => {
+    await supabase
+      .from("notifications")
+      .update({ is_read: true, read_at: new Date().toISOString() })
+      .eq("id", notificationId)
+    fetchNotifications()
+  }
+
+  const markAllAsRead = async () => {
+    await supabase
+      .from("notifications")
+      .update({ is_read: true, read_at: new Date().toISOString() })
+      .eq("user_id", user?.id)
+      .eq("is_read", false)
+    fetchNotifications()
+  }
 
   const fetchUser = async () => {
     try {
@@ -124,22 +191,69 @@ export function Header() {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="relative">
               <Bell className="h-5 w-5" />
-              {unreadNotifications > 0 && (
+              {unreadCount > 0 && (
                 <Badge
                   variant="destructive"
-                  className="absolute -right-1 -top-1 h-5 w-5 rounded-full p-0 text-xs"
+                  className="absolute -right-1 -top-1 h-5 w-5 rounded-full p-0 text-xs flex items-center justify-center"
                 >
-                  {unreadNotifications}
+                  {unreadCount > 9 ? "9+" : unreadCount}
                 </Badge>
               )}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-80">
-            <DropdownMenuLabel>Notifications</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <div className="p-4 text-center text-sm text-muted-foreground">
-              No new notifications
+            <div className="flex items-center justify-between px-4 py-2">
+              <DropdownMenuLabel className="p-0">Notifications</DropdownMenuLabel>
+              {unreadCount > 0 && (
+                <Button variant="ghost" size="sm" className="h-auto p-0 text-xs text-primary" onClick={markAllAsRead}>
+                  Mark all read
+                </Button>
+              )}
             </div>
+            <DropdownMenuSeparator />
+            {notifications.length === 0 ? (
+              <div className="p-4 text-center text-sm text-muted-foreground">
+                No notifications
+              </div>
+            ) : (
+              <div className="max-h-80 overflow-y-auto">
+                {notifications.map((notification) => (
+                  <DropdownMenuItem
+                    key={notification.id}
+                    className={`flex flex-col items-start gap-1 p-3 cursor-pointer ${!notification.is_read ? 'bg-primary/5' : ''}`}
+                    onClick={() => {
+                      markAsRead(notification.id)
+                      if (notification.link) {
+                        router.push(notification.link)
+                      }
+                    }}
+                  >
+                    <div className="flex items-start gap-2 w-full">
+                      <div className={`mt-1 h-2 w-2 rounded-full shrink-0 ${notification.type === 'message' ? 'bg-blue-500' : 'bg-primary'}`} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{notification.title}</p>
+                        {notification.body && (
+                          <p className="text-xs text-muted-foreground truncate">{notification.body}</p>
+                        )}
+                        <p className="text-xs text-muted-foreground/60 mt-1">
+                          {new Date(notification.created_at).toLocaleString()}
+                        </p>
+                      </div>
+                      {!notification.is_read && (
+                        <div className="h-2 w-2 bg-primary rounded-full shrink-0" />
+                      )}
+                    </div>
+                  </DropdownMenuItem>
+                ))}
+              </div>
+            )}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild className="justify-center">
+              <Link href="/dashboard/messages" className="text-sm text-primary">
+                <MessageSquare className="mr-2 h-4 w-4" />
+                View all messages
+              </Link>
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
 
