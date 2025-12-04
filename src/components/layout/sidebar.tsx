@@ -1,10 +1,12 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { useAppStore } from "@/store/app-store"
 import { Button } from "@/components/ui/button"
+import { supabase } from "@/lib/supabase/client"
 import {
   Calendar,
   Users,
@@ -22,6 +24,7 @@ import {
   ChevronRight,
   Home,
   UserCircle,
+  UserCog,
   LucideIcon,
 } from "lucide-react"
 
@@ -29,11 +32,13 @@ interface NavItem {
   name: string
   href: string
   icon: LucideIcon
+  adminOnly?: boolean
 }
 
 const navigation: NavItem[] = [
   { name: "Dashboard", href: "/dashboard", icon: Home },
   { name: "Events", href: "/dashboard/events", icon: Calendar },
+  { name: "User Management", href: "/dashboard/users", icon: UserCog, adminOnly: true },
   { name: "Registration", href: "/dashboard/registration", icon: Ticket },
   { name: "Venues", href: "/dashboard/venues", icon: Building2 },
   { name: "Floor Plans", href: "/dashboard/floor-plans", icon: Map },
@@ -54,6 +59,22 @@ const bottomNavigation: NavItem[] = [
 export function Sidebar() {
   const pathname = usePathname()
   const { sidebarOpen, toggleSidebar } = useAppStore()
+  const [userRole, setUserRole] = useState<string | null>(null)
+
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", user.id)
+          .single()
+        if (data) setUserRole(data.role)
+      }
+    }
+    fetchUserRole()
+  }, [])
 
   const renderNavItem = (item: NavItem) => {
     const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
@@ -113,7 +134,9 @@ export function Sidebar() {
         {/* Navigation */}
         <div className="flex-1 overflow-y-auto py-4">
           <nav className="space-y-1 px-2">
-            {navigation.map(renderNavItem)}
+            {navigation
+              .filter(item => !item.adminOnly || userRole === "admin")
+              .map(renderNavItem)}
           </nav>
         </div>
 

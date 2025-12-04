@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Calendar, Loader2 } from "lucide-react"
+import { Calendar, Loader2, Eye, EyeOff } from "lucide-react"
 import { supabase } from "@/lib/supabase/client"
 import { useToast } from "@/hooks/use-toast"
 
@@ -17,47 +17,51 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
 
       if (error) {
         toast({
-          title: "Error",
+          title: "Login Failed",
           description: error.message,
           variant: "destructive",
         })
+        setIsLoading(false)
         return
       }
 
+      // Update last login time
+      if (data.user) {
+        await supabase
+          .from('profiles')
+          .update({ last_login_at: new Date().toISOString() })
+          .eq('id', data.user.id)
+      }
+
       toast({
-        title: "Success",
+        title: "Welcome back!",
         description: "You have been logged in successfully.",
       })
       
       router.push("/dashboard")
+      router.refresh()
     } catch (error) {
       toast({
         title: "Error",
         description: "An unexpected error occurred.",
         variant: "destructive",
       })
-    } finally {
       setIsLoading(false)
     }
-  }
-
-  const handleDemoLogin = async () => {
-    setIsLoading(true)
-    // For demo purposes, redirect directly to dashboard
-    router.push("/dashboard")
   }
 
   return (
@@ -84,6 +88,7 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                autoComplete="email"
               />
             </div>
             <div className="space-y-2">
@@ -96,14 +101,30 @@ export default function LoginPage() {
                   Forgot password?
                 </Link>
               </div>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  autoComplete="current-password"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </Button>
+              </div>
             </div>
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
@@ -111,20 +132,8 @@ export default function LoginPage() {
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Sign In
             </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full"
-              onClick={handleDemoLogin}
-              disabled={isLoading}
-            >
-              Try Demo (No Login Required)
-            </Button>
             <p className="text-center text-sm text-muted-foreground">
-              Don&apos;t have an account?{" "}
-              <Link href="/auth/register" className="text-primary hover:underline">
-                Sign up
-              </Link>
+              Contact your administrator if you need an account.
             </p>
           </CardFooter>
         </form>

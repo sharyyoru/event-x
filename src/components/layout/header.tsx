@@ -1,6 +1,7 @@
 "use client"
 
-import { Bell, Search, Plus } from "lucide-react"
+import { useEffect, useState } from "react"
+import { Bell, Search, Plus, LogOut, User, Settings } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -13,17 +14,81 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
-import { useAppStore } from "@/store/app-store"
+import { supabase } from "@/lib/supabase/client"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
+
+interface UserProfile {
+  id: string
+  email: string
+  full_name: string
+  first_name: string | null
+  avatar_url: string | null
+  role: string
+}
 
 export function Header() {
-  const { user, unreadNotifications } = useAppStore()
+  const router = useRouter()
+  const [user, setUser] = useState<UserProfile | null>(null)
+  const [unreadNotifications] = useState(0)
+
+  useEffect(() => {
+    fetchUser()
+  }, [])
+
+  const fetchUser = async () => {
+    try {
+      const { data: { user: authUser } } = await supabase.auth.getUser()
+      
+      if (authUser) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("id, email, full_name, first_name, avatar_url, role")
+          .eq("id", authUser.id)
+          .single()
+
+        if (profile) {
+          setUser(profile)
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching user:", error)
+    }
+  }
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut()
+    router.push("/auth/login")
+  }
+
+  const getInitials = (name: string) => {
+    return name
+      ?.split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2) || "?"
+  }
+
+  const getRoleColor = (role: string) => {
+    const colors: Record<string, string> = {
+      admin: "bg-red-500",
+      organizer: "bg-purple-500",
+      staff: "bg-blue-500",
+      exhibitor: "bg-green-500",
+      delegate: "bg-yellow-500",
+      attendee: "bg-gray-500",
+    }
+    return colors[role] || "bg-gray-500"
+  }
+
+  const displayName = user?.first_name || user?.full_name?.split(" ")[0] || "User"
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background px-6">
       {/* Search */}
       <div className="flex items-center gap-4">
-        <div className="relative w-96">
+        <div className="relative w-96 max-w-md">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Search events, attendees, venues..."
@@ -34,13 +99,15 @@ export function Header() {
 
       {/* Actions */}
       <div className="flex items-center gap-4">
-        {/* Create Event Button */}
-        <Link href="/dashboard/events/new">
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            Create Event
-          </Button>
-        </Link>
+        {/* Create Event Button - Only for admins and organizers */}
+        {(user?.role === "admin" || user?.role === "organizer") && (
+          <Link href="/dashboard/events/new">
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              Create Event
+            </Button>
+          </Link>
+        )}
 
         {/* Notifications */}
         <DropdownMenu>
@@ -60,19 +127,8 @@ export function Header() {
           <DropdownMenuContent align="end" className="w-80">
             <DropdownMenuLabel>Notifications</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <div className="max-h-96 overflow-auto">
-              <DropdownMenuItem className="flex flex-col items-start gap-1">
-                <span className="font-medium">New registration</span>
-                <span className="text-sm text-muted-foreground">
-                  John Doe registered for Tech Conference 2024
-                </span>
-              </DropdownMenuItem>
-              <DropdownMenuItem className="flex flex-col items-start gap-1">
-                <span className="font-medium">Meeting request</span>
-                <span className="text-sm text-muted-foreground">
-                  Sarah wants to schedule a meeting at your booth
-                </span>
-              </DropdownMenuItem>
+            <div className="p-4 text-center text-sm text-muted-foreground">
+              No new notifications
             </div>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -80,13 +136,20 @@ export function Header() {
         {/* User Menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="relative h-9 w-9 rounded-full">
-              <Avatar className="h-9 w-9">
+            <Button variant="ghost" className="flex items-center gap-2 px-2">
+              <Avatar className="h-8 w-8">
                 <AvatarImage src={user?.avatar_url || ""} alt={user?.full_name || "User"} />
-                <AvatarFallback>
-                  {user?.full_name?.slice(0, 2).toUpperCase() || "U"}
+                <AvatarFallback className="text-xs">
+                  {getInitials(user?.full_name || "")}
                 </AvatarFallback>
               </Avatar>
+              <div className="hidden flex-col items-start md:flex">
+                <span className="text-sm font-medium">{displayName}</span>
+                <span className="flex items-center text-xs text-muted-foreground capitalize">
+                  <span className={`mr-1 h-1.5 w-1.5 rounded-full ${getRoleColor(user?.role || "")}`} />
+                  {user?.role}
+                </span>
+              </div>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
@@ -94,17 +157,30 @@ export function Header() {
               <div className="flex flex-col space-y-1">
                 <p className="text-sm font-medium">{user?.full_name || "Guest User"}</p>
                 <p className="text-xs text-muted-foreground">{user?.email || ""}</p>
+                <Badge variant="secondary" className="mt-1 w-fit capitalize text-xs">
+                  <span className={`mr-1 h-1.5 w-1.5 rounded-full ${getRoleColor(user?.role || "")}`} />
+                  {user?.role}
+                </Badge>
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
-              <Link href="/dashboard/profile">Profile</Link>
+              <Link href="/dashboard/profile" className="flex items-center">
+                <User className="mr-2 h-4 w-4" />
+                Profile
+              </Link>
             </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/dashboard/settings">Settings</Link>
-            </DropdownMenuItem>
+            {user?.role === "admin" && (
+              <DropdownMenuItem asChild>
+                <Link href="/dashboard/users" className="flex items-center">
+                  <Settings className="mr-2 h-4 w-4" />
+                  User Management
+                </Link>
+              </DropdownMenuItem>
+            )}
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-destructive">
+            <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
+              <LogOut className="mr-2 h-4 w-4" />
               Sign out
             </DropdownMenuItem>
           </DropdownMenuContent>
