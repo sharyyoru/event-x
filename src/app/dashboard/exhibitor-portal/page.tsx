@@ -303,13 +303,10 @@ export default function ExhibitorPortalPage() {
         return
       }
 
-      // Fetch exhibitor details
+      // Fetch exhibitor details (without join to avoid PostgREST errors)
       const { data: exhibitorData, error: exhibitorError } = await supabase
         .from("exhibitors")
-        .select(`
-          *,
-          events(id, title, start_date, end_date, venue)
-        `)
+        .select("*")
         .eq("id", exhibitorId)
         .maybeSingle()
 
@@ -318,7 +315,20 @@ export default function ExhibitorPortalPage() {
       }
 
       if (exhibitorData) {
-        setExhibitor(exhibitorData)
+        // Fetch event separately
+        let exhibitorWithEvent = { ...exhibitorData, events: undefined as any }
+        if (exhibitorData.event_id) {
+          const { data: eventData } = await supabase
+            .from("events")
+            .select("id, title, start_date, end_date, venue")
+            .eq("id", exhibitorData.event_id)
+            .maybeSingle()
+          
+          if (eventData) {
+            exhibitorWithEvent.events = eventData
+          }
+        }
+        setExhibitor(exhibitorWithEvent)
         setEditForm({
           company_description: exhibitorData.company_description || "",
           company_website: exhibitorData.company_website || "",

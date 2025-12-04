@@ -155,12 +155,10 @@ export default function ExhibitorDetailPage() {
 
   const fetchExhibitor = useCallback(async () => {
     try {
+      // Fetch exhibitor first
       const { data, error } = await supabase
         .from("exhibitors")
-        .select(`
-          *,
-          events(id, title, start_date, end_date, venue)
-        `)
+        .select("*")
         .eq("id", exhibitorId)
         .maybeSingle()
 
@@ -175,7 +173,21 @@ export default function ExhibitorDetailPage() {
         return
       }
       
-      setExhibitor(data)
+      // Fetch event separately if event_id exists
+      let exhibitorWithEvent = { ...data, events: undefined as any }
+      if (data.event_id) {
+        const { data: eventData } = await supabase
+          .from("events")
+          .select("id, title, start_date, end_date, venue")
+          .eq("id", data.event_id)
+          .maybeSingle()
+        
+        if (eventData) {
+          exhibitorWithEvent.events = eventData
+        }
+      }
+      
+      setExhibitor(exhibitorWithEvent)
 
       // Set edit form with existing values
       setEditForm({

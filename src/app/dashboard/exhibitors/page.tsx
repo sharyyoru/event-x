@@ -156,17 +156,31 @@ export default function ExhibitorsPage() {
 
   const fetchExhibitors = async () => {
     try {
+      // Fetch exhibitors with contacts
       const { data, error } = await supabase
         .from("exhibitors")
         .select(`
           *,
-          events(title),
           contacts:exhibitor_contacts(id, full_name, email, phone, job_title, is_primary, invitation_status, user_id)
         `)
         .order("company_name")
 
       if (error) throw error
-      setExhibitors(data || [])
+      
+      // Fetch all events to map to exhibitors
+      const { data: eventsData } = await supabase
+        .from("events")
+        .select("id, title")
+      
+      const eventsMap = new Map(eventsData?.map(e => [e.id, e]) || [])
+      
+      // Add event data to each exhibitor
+      const exhibitorsWithEvents = (data || []).map(exhibitor => ({
+        ...exhibitor,
+        events: exhibitor.event_id ? eventsMap.get(exhibitor.event_id) : undefined
+      }))
+      
+      setExhibitors(exhibitorsWithEvents)
     } catch (error: any) {
       console.error("Error fetching exhibitors:", error)
       toast({
@@ -595,12 +609,12 @@ export default function ExhibitorsPage() {
                             </AvatarFallback>
                           </Avatar>
                           <div>
-                            <p className="font-medium flex items-center gap-2">
+                            <div className="font-medium flex items-center gap-2">
                               {contact.full_name}
                               {contact.is_primary && (
                                 <Badge variant="secondary" className="text-xs">Primary</Badge>
                               )}
-                            </p>
+                            </div>
                             <div className="flex items-center gap-3 text-xs text-muted-foreground">
                               <span className="flex items-center gap-1">
                                 <Mail className="h-3 w-3" />
